@@ -1,2 +1,4 @@
+cd client
+rm -rf node_modules package-lock.json
 npm install
-npm run dev
+git add package-lock.json
