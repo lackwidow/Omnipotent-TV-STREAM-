@@ -1,0 +1,30 @@
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #0a0a0a;
+  color: #fff;
+}
+
+nav {
+  display: flex;
+  gap: 20px;
+  padding: 16px;
+  background: #1a1a1a;
+}
+
+nav a {
+  color: #fff;
+  text-decoration: none;
+}
+
+.channels-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+  padding: 20px;
+}
+
+.loading, .error {
+  text-align: center;
+  padding: 40px;
+}
