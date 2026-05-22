@@ -1,2 +1,2 @@
-npm install react-redux @reduxjs/toolkit react-router-dom
-npm install -D typescript @types/react @types/react-dom vite
+npm install
+npm run dev
