@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Provider } from 'react-redux';
+import { Provider, useDispatch } from 'react-redux';
 import store from './store';
+import { setChannels, setLoading, setError } from './store/channelsSlice';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import PlayerPage from './pages/PlayerPage';
@@ -10,22 +11,105 @@ import FavoritesPage from './pages/FavoritesPage';
 import SettingsPage from './pages/SettingsPage';
 import './App.css';
 
+const CONFIG_URL = 'https://raw.githubusercontent.com/lackwidow/Omnipotent-TV-STREAM-/main/config/channels.json';
+
+interface Channel {
+  id: string;
+  name: string;
+  url: string;
+  logo: string;
+  group: string;
+}
+
+function AppContent() {
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    const loadChannels = async () => {
+      try {
+        dispatch(setLoading(true));
+
+        const cached = localStorage.getItem('channels_cache');
+        const cachedTime = localStorage.getItem('channels_cache_time');
+        const now = Date.now();
+
+        const configRes = await fetch(CONFIG_URL);
+        const config = await configRes.json();
+        const cacheHours = config.cache_hours || 6;
+
+        if (cached && cachedTime && now - parseInt(cachedTime) < cacheHours * 60 * 60 * 1000) {
+          dispatch(setChannels(JSON.parse(cached)));
+          dispatch(setLoading(false));
+          return;
+        }
+
+        const m3uRes = await fetch(config.playlist_url);
+        const m3uText = await m3uRes.text();
+        const channels = parseM3U(m3uText);
+
+        localStorage.setItem('channels_cache', JSON.stringify(channels));
+        localStorage.setItem('channels_cache_time', now.toString());
+        
+        dispatch(setChannels(channels));
+      } catch (err: any) {
+        dispatch(setError(err.message));
+        console.error('Failed to load channels:', err);
+      } finally {
+        dispatch(setLoading(false));
+      }
+    };
+
+    loadChannels();
+  }, [dispatch]);
+
+  return (
+    <Layout>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/channels" element={<ChannelsPage />} />
+        <Route path="/player/:id" element={<PlayerPage />} />
+        <Route path="/favorites" element={<FavoritesPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+      </Routes>
+    </Layout>
+  );
+}
+
 function App() {
   return (
     <Provider store={store}>
       <Router>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/channels" element={<ChannelsPage />} />
-            <Route path="/player/:id" element={<PlayerPage />} />
-            <Route path="/favorites" element={<FavoritesPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-          </Routes>
-        </Layout>
+        <AppContent />
       </Router>
     </Provider>
   );
+}
+
+function parseM3U(m3uText: string): Channel[] {
+  const lines = m3uText.split('\n');
+  const channels: Channel[] = [];
+  let name = '', logo = '', group = '';
+
+  for (let line of lines) {
+    line = line.trim();
+    if (line.startsWith('#EXTINF')) {
+      name = line.split(',').pop()?.trim() || 'Unknown';
+      const logoMatch = line.match(/tvg-logo="(.*?)"/);
+      logo = logoMatch? logoMatch[1] : '';
+      const groupMatch = line.match(/group-title="(.*?)"/);
+      group = groupMatch? groupMatch[1] : 'Other';
+    } else if (line.startsWith('http')) {
+      channels.push({
+        id: name.toLowerCase().replace(/\s+/g, '-'),
+        name: name.trim(),
+        url: line.trim(),
+        logo: logo,
+        group: group
+      });
+      name = logo = group = '';
+    }
+  }
+  return channels;
 }
 
 export default App;
